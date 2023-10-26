@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strconv"
-	"sync"
 )
 
 func preprocess(code string) (map[int]int, error) {
@@ -35,7 +34,8 @@ func preprocess(code string) (map[int]int, error) {
 	return res, nil
 }
 
-func runBrainFuck(code string, inChannel chan byte, outChannel chan byte) error {
+func runBrainFuck(code string, requestInputChannel chan bool, inChannel chan byte, outChannel chan byte) error {
+	defer close(requestInputChannel)
 	defer close(outChannel)
 	lookup, err := preprocess(code)
 	if err != nil {
@@ -45,7 +45,7 @@ func runBrainFuck(code string, inChannel chan byte, outChannel chan byte) error 
 	tape := make([]byte, TAPE_LENGTH)
 	ptr := 0
 	for i := 0; i < len(code); i++ {
-		fmt.Println(code[i])
+		// fmt.Printf("%v", code[i])
 		switch code[i] {
 		case '>':
 			ptr++
@@ -64,6 +64,7 @@ func runBrainFuck(code string, inChannel chan byte, outChannel chan byte) error 
 		case '.':
 			outChannel <- tape[ptr]
 		case ',':
+			requestInputChannel <- true
 			val, more := <-inChannel
 			if !more {
 				return fmt.Errorf("Expected more inputs, but input channel closed")
@@ -84,14 +85,18 @@ func runBrainFuck(code string, inChannel chan byte, outChannel chan byte) error 
 	return nil
 }
 
-func takeInputs(inChannel chan byte) {
+func takeInputs(requestInputChannel chan bool, inChannel chan byte) {
 	defer close(inChannel)
 	var input string
 	for {
-		fmt.Println("Enter an integer (to be converted into a byte)")
+		_, more := <-requestInputChannel
+		if !more {
+			break
+		}
+		fmt.Print("Enter an integer (to be converted into a byte)\n>> ")
 		fmt.Scanln(&input)
 		x, err := strconv.Atoi(input)
-		fmt.Println(input, x, err)
+		// fmt.Printf("%v %v %v\n", input, x, err)
 		if err != nil {
 			fmt.Printf("Unable to convert %v into an int, stopped taking inputs.\n", input)
 			break
@@ -112,17 +117,12 @@ func printOutputs(outChannel chan byte) {
 }
 
 func main() {
+	requestInputChannel := make(chan bool, 1)
 	inChannel := make(chan byte, 1)
 	outChannel := make(chan byte, 1)
 	program := ",+."
 	fmt.Println(program)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		takeInputs(inChannel)
-		go printOutputs(outChannel)
-		go runBrainFuck(program, inChannel, outChannel)
-	}()
-	wg.Wait()
+	go takeInputs(requestInputChannel, inChannel)
+	go runBrainFuck(program, requestInputChannel, inChannel, outChannel)
+	printOutputs(outChannel)
 }
