@@ -111,7 +111,7 @@ func printOutputs(outChannel chan byte) {
 		if !more {
 			break
 		}
-		fmt.Print(b)
+		fmt.Println(b)
 	}
 	fmt.Println()
 }
@@ -120,7 +120,8 @@ func main() {
 	requestInputChannel := make(chan bool, 1)
 	inChannel := make(chan byte, 1)
 	outChannel := make(chan byte, 1)
-	program := ",+."
+	// prints first n Fibonacci numbers
+	program := ">>+<<,[->>.<[->>+<<]>[-<+>>+<]>[-<+>]<<<]"
 	fmt.Println(program)
 	go takeInputs(requestInputChannel, inChannel)
 	go runBrainFuck(program, requestInputChannel, inChannel, outChannel)
