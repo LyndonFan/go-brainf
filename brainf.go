@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"strconv"
 )
@@ -105,25 +106,41 @@ func takeInputs(requestInputChannel chan bool, inChannel chan byte) {
 	}
 }
 
-func printOutputs(outChannel chan byte) {
+func printOutputs(outChannel chan byte, outputAsString bool) {
 	for {
 		b, more := <-outChannel
 		if !more {
 			break
 		}
-		fmt.Println(b)
+		if outputAsString {
+			fmt.Printf("%c", b)
+		} else {
+			fmt.Println(b)
+		}
 	}
 	fmt.Println()
 }
 
 func main() {
+	var program, inputFileLocation, outputFileLocation string
+	var outputAsString bool
+	flag.StringVar(&program, "program", "", "Program to run")
+	flag.StringVar(&inputFileLocation, "input", "", "Input file location")
+	flag.StringVar(&outputFileLocation, "output", "", "Output file location")
+	flag.BoolVar(&outputAsString, "output-as-string", false, "Whether to output result as string")
+	flag.Parse()
+
+	fmt.Printf("Program: %v\n", program)
+	fmt.Printf("Input file: %v\n", inputFileLocation)
+	fmt.Printf("Output file: %v\n", outputFileLocation)
+
 	requestInputChannel := make(chan bool, 1)
 	inChannel := make(chan byte, 1)
 	outChannel := make(chan byte, 1)
-	// prints first n Fibonacci numbers
-	program := ">>+<<,[->>.<[->>+<<]>[-<+>>+<]>[-<+>]<<<]"
-	fmt.Println(program)
+	
+	// example program that prints first n Fibonacci numbers
+	// ">>+<<,[->>.<[->>+<<]>[-<+>>+<]>[-<+>]<<<]"
 	go takeInputs(requestInputChannel, inChannel)
 	go runBrainFuck(program, requestInputChannel, inChannel, outChannel)
-	printOutputs(outChannel)
+	printOutputs(outChannel, outputAsString)
 }
