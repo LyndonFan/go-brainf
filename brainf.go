@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -16,7 +18,7 @@ func preprocess(code string) (map[int]int, error) {
 			stack = append(stack, i)
 		case ']':
 			if len(stack) == 0 {
-				return nil, fmt.Errorf("Unmatched ']' at position %d", i)
+				return nil, fmt.Errorf("unmatched ']' at position %d", i)
 			}
 			j = stack[len(stack)-1]
 			res[i] = j
@@ -27,10 +29,10 @@ func preprocess(code string) (map[int]int, error) {
 		}
 	}
 	if len(stack) == 1 {
-		return nil, fmt.Errorf("Unmatched '[' at position %d", stack[0])
+		return nil, fmt.Errorf("unmatched '[' at position %d", stack[0])
 	}
 	if len(stack) > 1 {
-		return nil, fmt.Errorf("Unmatched '[' at positions %v", stack)
+		return nil, fmt.Errorf("unmatched '[' at positions %v", stack)
 	}
 	return res, nil
 }
@@ -51,12 +53,12 @@ func runBrainFuck(code string, requestInputChannel chan bool, inChannel chan byt
 		case '>':
 			ptr++
 			if ptr >= TAPE_LENGTH {
-				return fmt.Errorf("Pointer went too far right and exceeded tape length of %d", TAPE_LENGTH)
+				return fmt.Errorf("pointer went too far right and exceeded tape length of %d", TAPE_LENGTH)
 			}
 		case '<':
 			ptr--
 			if ptr < 0 {
-				return fmt.Errorf("Pointer went too far left")
+				return fmt.Errorf("pointer went too far left")
 			}
 		case '+':
 			tape[ptr]++
@@ -68,7 +70,7 @@ func runBrainFuck(code string, requestInputChannel chan bool, inChannel chan byt
 			requestInputChannel <- true
 			val, more := <-inChannel
 			if !more {
-				return fmt.Errorf("Expected more inputs, but input channel closed")
+				return fmt.Errorf("expected more inputs, but input channel closed")
 			}
 			tape[ptr] = val
 		case '[':
@@ -86,7 +88,7 @@ func runBrainFuck(code string, requestInputChannel chan bool, inChannel chan byt
 	return nil
 }
 
-func takeInputs(requestInputChannel chan bool, inChannel chan byte) {
+func takeInputs(requestInputChannel chan bool, inChannel chan byte) error {
 	defer close(inChannel)
 	var input string
 	for {
@@ -100,13 +102,14 @@ func takeInputs(requestInputChannel chan bool, inChannel chan byte) {
 		// fmt.Printf("%v %v %v\n", input, x, err)
 		if err != nil {
 			fmt.Printf("Unable to convert %v into an int, stopped taking inputs.\n", input)
-			break
+			return err
 		}
 		inChannel <- byte(x)
 	}
+	return nil
 }
 
-func printOutputs(outChannel chan byte, outputAsString bool) {
+func printOutputs(outChannel chan byte, outputAsString bool) error {
 	for {
 		b, more := <-outChannel
 		if !more {
@@ -119,14 +122,42 @@ func printOutputs(outChannel chan byte, outputAsString bool) {
 		}
 	}
 	fmt.Println()
+	return nil
+}
+
+func readInputs(requestInputChannel chan bool, inChannel chan byte, inputFileLocation string) error {
+	defer close(inChannel)
+	file, err := os.OpenFile(inputFileLocation, os.O_RDONLY, 0)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("input file %v does not exist", inputFileLocation)
+	}
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	
+	reader := bufio.NewReader(file)
+	for {
+		_, more := <-requestInputChannel
+		if !more {
+			break
+		}
+		input, err := reader.ReadByte()
+		if err != nil {
+			return err
+		}
+		inChannel <- input
+	}
+	return nil
 }
 
 func main() {
 	var program, inputFileLocation, outputFileLocation string
-	var outputAsString bool
+	var inputAsString, outputAsString bool
 	flag.StringVar(&program, "program", "", "Program to run")
 	flag.StringVar(&inputFileLocation, "input", "", "Input file location")
 	flag.StringVar(&outputFileLocation, "output", "", "Output file location")
+	flag.BoolVar(&inputAsString, "input-as-string", true, "Whether to input is read as string")
 	flag.BoolVar(&outputAsString, "output-as-string", false, "Whether to output result as string")
 	flag.Parse()
 
@@ -134,13 +165,22 @@ func main() {
 	fmt.Printf("Input file: %v\n", inputFileLocation)
 	fmt.Printf("Output file: %v\n", outputFileLocation)
 
+	if inputFileLocation == outputFileLocation && outputFileLocation != "" {
+		fmt.Printf("Output file (%v) cannot be the same as input file (%v).\n", outputFileLocation, inputFileLocation)
+		return
+	}
+
 	requestInputChannel := make(chan bool, 1)
 	inChannel := make(chan byte, 1)
 	outChannel := make(chan byte, 1)
-	
+
 	// example program that prints first n Fibonacci numbers
 	// ">>+<<,[->>.<[->>+<<]>[-<+>>+<]>[-<+>]<<<]"
-	go takeInputs(requestInputChannel, inChannel)
+	if inputFileLocation == "" {
+		go takeInputs(requestInputChannel, inChannel)
+	} else {
+		go readInputs(requestInputChannel, inChannel, inputFileLocation)
+	}
 	go runBrainFuck(program, requestInputChannel, inChannel, outChannel)
 	printOutputs(outChannel, outputAsString)
 }
