@@ -135,7 +135,7 @@ func readInputs(requestInputChannel chan bool, inChannel chan byte, inputFileLoc
 		return err
 	}
 	defer file.Close()
-	
+
 	reader := bufio.NewReader(file)
 	for {
 		_, more := <-requestInputChannel
@@ -174,8 +174,6 @@ func main() {
 	inChannel := make(chan byte, 1)
 	outChannel := make(chan byte, 1)
 
-	// example program that prints first n Fibonacci numbers
-	// ">>+<<,[->>.<[->>+<<]>[-<+>>+<]>[-<+>]<<<]"
 	if inputFileLocation == "" {
 		go takeInputs(requestInputChannel, inChannel)
 	} else {
