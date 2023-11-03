@@ -1,74 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
-	"os"
-	"strconv"
 )
-
-func takeInputs(requestInputChannel chan bool, inChannel chan byte) error {
-	defer close(inChannel)
-	var input string
-	for {
-		_, more := <-requestInputChannel
-		if !more {
-			break
-		}
-		fmt.Print("Enter an integer (to be converted into a byte)\n>> ")
-		fmt.Scanln(&input)
-		x, err := strconv.Atoi(input)
-		if err != nil {
-			fmt.Printf("Unable to convert %v into an int, stopped taking inputs.\n", input)
-			return err
-		}
-		inChannel <- byte(x)
-	}
-	return nil
-}
-
-func printOutputs(outChannel chan byte, outputAsString bool) error {
-	for {
-		b, more := <-outChannel
-		if !more {
-			break
-		}
-		if outputAsString {
-			fmt.Printf("%c", b)
-		} else {
-			fmt.Println(b)
-		}
-	}
-	fmt.Println()
-	return nil
-}
-
-func readInputs(requestInputChannel chan bool, inChannel chan byte, inputFileLocation string) error {
-	defer close(inChannel)
-	file, err := os.OpenFile(inputFileLocation, os.O_RDONLY, 0)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("input file %v does not exist", inputFileLocation)
-	}
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
-	for {
-		_, more := <-requestInputChannel
-		if !more {
-			break
-		}
-		input, err := reader.ReadByte()
-		if err != nil {
-			return err
-		}
-		inChannel <- input
-	}
-	return nil
-}
 
 func main() {
 	var program, inputFileLocation, outputFileLocation string
@@ -93,11 +28,23 @@ func main() {
 	inChannel := make(chan byte, 1)
 	outChannel := make(chan byte, 1)
 
+	inputConfig := InputConfig{
+		RequestInputChannel: &requestInputChannel,
+		InChannel:           &inChannel,
+		InputFileLocation:   inputFileLocation,
+		ReadInputAsString:   inputAsString,
+	}
+	outputConfig := OutputConfig{
+		OutputChannel:      &outChannel,
+		OutputFileLocation: outputFileLocation,
+		OutputAsString:     outputAsString,
+	}
+
 	if inputFileLocation == "" {
-		go takeInputs(requestInputChannel, inChannel)
+		go takeInputs(inputConfig)
 	} else {
-		go readInputs(requestInputChannel, inChannel, inputFileLocation)
+		go readInputs(inputConfig)
 	}
 	go runBrainFuck(program, requestInputChannel, inChannel, outChannel)
-	printOutputs(outChannel, outputAsString)
+	printOutputs(outputConfig)
 }
