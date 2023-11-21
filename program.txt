@@ -1,0 +1,2 @@
+Asks for 2 numbers and multiplies them
+,>,<[->[->+>+<<]>[-<+>]<<]>>>.

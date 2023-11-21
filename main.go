@@ -1,86 +1,41 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 )
 
-func takeInputs(requestInputChannel chan bool, inChannel chan byte) error {
-	defer close(inChannel)
-	var input string
-	for {
-		_, more := <-requestInputChannel
-		if !more {
-			break
-		}
-		fmt.Print("Enter an integer (to be converted into a byte)\n>> ")
-		fmt.Scanln(&input)
-		x, err := strconv.Atoi(input)
-		if err != nil {
-			fmt.Printf("Unable to convert %v into an int, stopped taking inputs.\n", input)
-			return err
-		}
-		inChannel <- byte(x)
-	}
-	return nil
-}
-
-func printOutputs(outChannel chan byte, outputAsString bool) error {
-	for {
-		b, more := <-outChannel
-		if !more {
-			break
-		}
-		if outputAsString {
-			fmt.Printf("%c", b)
-		} else {
-			fmt.Println(b)
-		}
-	}
-	fmt.Println()
-	return nil
-}
-
-func readInputs(requestInputChannel chan bool, inChannel chan byte, inputFileLocation string) error {
-	defer close(inChannel)
-	file, err := os.OpenFile(inputFileLocation, os.O_RDONLY, 0)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("input file %v does not exist", inputFileLocation)
-	}
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
-	for {
-		_, more := <-requestInputChannel
-		if !more {
-			break
-		}
-		input, err := reader.ReadByte()
-		if err != nil {
-			return err
-		}
-		inChannel <- input
-	}
-	return nil
-}
-
 func main() {
-	var program, inputFileLocation, outputFileLocation string
+	var program, programFile, inputFileLocation, outputFileLocation string
 	var inputAsString, outputAsString bool
 	flag.StringVar(&program, "program", "", "Program to run")
-	flag.StringVar(&inputFileLocation, "input", "", "Input file location")
-	flag.StringVar(&outputFileLocation, "output", "", "Output file location")
+	flag.StringVar(&programFile, "program-file", "", "File location of program to run")
+	flag.StringVar(&inputFileLocation, "input", "", "File location of inputs")
+	flag.StringVar(&outputFileLocation, "output", "", "File location of outputs")
 	flag.BoolVar(&inputAsString, "input-as-string", true, "Whether to input is read as string")
 	flag.BoolVar(&outputAsString, "output-as-string", false, "Whether to output result as string")
 	flag.Parse()
 
-	fmt.Printf("Program: %v\n", program)
+	if (programFile == "" && program == "") || (programFile != "" && program != "") {
+		fmt.Println("Must specify exactly one of -program or -program-file")
+		return
+	}
+
+	if programFile != "" {
+		text, err := os.ReadFile(programFile)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		program = string(text)
+	}
+
+	if programFile != "" {
+		fmt.Printf("Program file: %v\n", programFile)
+	} else {
+		fmt.Printf("Program: %v\n", program)
+	}
 	fmt.Printf("Input file: %v\n", inputFileLocation)
 	fmt.Printf("Output file: %v\n", outputFileLocation)
 
@@ -93,11 +48,23 @@ func main() {
 	inChannel := make(chan byte, 1)
 	outChannel := make(chan byte, 1)
 
+	inputConfig := InputConfig{
+		RequestInputChannel: &requestInputChannel,
+		InChannel:           &inChannel,
+		InputFileLocation:   inputFileLocation,
+		ReadInputAsString:   inputAsString,
+	}
+	outputConfig := OutputConfig{
+		OutputChannel:      &outChannel,
+		OutputFileLocation: outputFileLocation,
+		OutputAsString:     outputAsString,
+	}
+
 	if inputFileLocation == "" {
-		go takeInputs(requestInputChannel, inChannel)
+		go takeInputs(inputConfig)
 	} else {
-		go readInputs(requestInputChannel, inChannel, inputFileLocation)
+		go readInputs(inputConfig)
 	}
 	go runBrainFuck(program, requestInputChannel, inChannel, outChannel)
-	printOutputs(outChannel, outputAsString)
+	printOutputs(outputConfig)
 }
