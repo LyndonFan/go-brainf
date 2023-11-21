@@ -11,13 +11,14 @@ It will then print the `<PROGRAM>`. If it needs input, it will pause and ask you
 Depending on your platform, replace `go-brainf` below with:
 
 -   Linux (tested on Ubuntu, not sure about others): `go-brainf.sh`
+-   MacOS: `go-brainf`
 -   Windows: TBD
 
 ## Example programs
 
 -   cat: asks for a number, prints it: `",."`
 -   addition: `",>,<[->>+<<]>[->+<]>."`
--   multiplication: `",>,<[->[->+>+<<]>[-<+>]<<]>>>."`
+-   multiplication: `",>,<[->[->+>+<<]>[-<+>]<<]>>>."` (Also in [program.txt](program.txt))
 -   first n Fibonacci numbers (mod 256): `">>+<<,[->>.<[->>+<<]>[-<+>>+<]>[-<+>]<<<]"`
 
 ## Usage
@@ -25,13 +26,15 @@ Depending on your platform, replace `go-brainf` below with:
 ```bash
 Usage of ./go-brainf:
   -input string
-        Input file location
+        File location of inputs
   -input-as-string
         Whether to input is read as string (default true)
   -output string
-        Output file location
+        File location of outputs
   -output-as-string
         Whether to output result as string
   -program string
         Program to run
+  -program-file string
+        File location of program to run
 ```

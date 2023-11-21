@@ -3,19 +3,39 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 )
 
 func main() {
-	var program, inputFileLocation, outputFileLocation string
+	var program, programFile, inputFileLocation, outputFileLocation string
 	var inputAsString, outputAsString bool
 	flag.StringVar(&program, "program", "", "Program to run")
-	flag.StringVar(&inputFileLocation, "input", "", "Input file location")
-	flag.StringVar(&outputFileLocation, "output", "", "Output file location")
+	flag.StringVar(&programFile, "program-file", "", "File location of program to run")
+	flag.StringVar(&inputFileLocation, "input", "", "File location of inputs")
+	flag.StringVar(&outputFileLocation, "output", "", "File location of outputs")
 	flag.BoolVar(&inputAsString, "input-as-string", true, "Whether to input is read as string")
 	flag.BoolVar(&outputAsString, "output-as-string", false, "Whether to output result as string")
 	flag.Parse()
 
-	fmt.Printf("Program: %v\n", program)
+	if (programFile == "" && program == "") || (programFile != "" && program != "") {
+		fmt.Println("Must specify exactly one of -program or -program-file")
+		return
+	}
+
+	if programFile != "" {
+		text, err := os.ReadFile(programFile)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		program = string(text)
+	}
+
+	if programFile != "" {
+		fmt.Printf("Program file: %v\n", programFile)
+	} else {
+		fmt.Printf("Program: %v\n", program)
+	}
 	fmt.Printf("Input file: %v\n", inputFileLocation)
 	fmt.Printf("Output file: %v\n", outputFileLocation)
 
